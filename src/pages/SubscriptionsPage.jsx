@@ -51,6 +51,33 @@ export default function SubscriptionsPage() {
     cancelled: 'bg-red-50 text-red-600',
   }
 
+  const statusLabels = {
+    active: 'Active',
+    trialing: 'Trialing',
+    past_due: 'Past Due',
+    expired: 'Expired',
+    cancelled: 'Cancelled',
+  }
+
+  // The stored status can lag behind reality (e.g. an "active" row whose
+  // endDate already passed). Compute what the subscription actually is
+  // right now so the badge reads Expired/Active truthfully.
+  const getEffectiveStatus = (sub) => {
+    if (sub.status === 'cancelled') return 'cancelled'
+    const end = sub.endDate ? new Date(sub.endDate).getTime() : null
+    if (end && end < Date.now()) return 'expired'
+    return sub.status
+  }
+
+  // "ends in 12d" / "ended 3d ago" — small hint under the badge.
+  const getExpiryHint = (sub) => {
+    if (!sub.endDate || sub.status === 'cancelled') return null
+    const diffDays = Math.round((new Date(sub.endDate).getTime() - Date.now()) / 86400000)
+    if (diffDays < 0) return `ended ${Math.abs(diffDays)}d ago`
+    if (diffDays === 0) return 'ends today'
+    return `ends in ${diffDays}d`
+  }
+
   const runSubscriptionAction = async (id, action) => {
     setActionLoading(id)
     try {
@@ -192,13 +219,27 @@ export default function SubscriptionsPage() {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                          statusColors[sub.status] || 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        {sub.status}
-                      </span>
+                      {(() => {
+                        const eff = getEffectiveStatus(sub)
+                        const hint = getExpiryHint(sub)
+                        return (
+                          <div className="space-y-1">
+                            <span
+                              className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                                statusColors[eff] || 'bg-gray-100 text-gray-500'
+                              }`}
+                            >
+                              {statusLabels[eff] || eff}
+                            </span>
+                            {eff !== sub.status && (
+                              <p className="text-[10px] text-gray-400">stored: {sub.status}</p>
+                            )}
+                            {hint && (
+                              <p className={`text-[10px] ${eff === 'expired' ? 'text-red-500' : 'text-gray-400'}`}>{hint}</p>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
