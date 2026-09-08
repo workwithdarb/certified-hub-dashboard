@@ -1,18 +1,32 @@
 import { useState, useEffect } from 'react'
 import { adminAPI } from '../lib/api'
 import { FiCheck, FiX, FiChevronLeft, FiChevronRight, FiTrash2 } from 'react-icons/fi'
+import { useToast } from '../components/ToastProvider'
+
+const STATUS_TABS = [
+  { label: 'All', value: '' },
+  { label: 'Pending', value: 'pending' },
+  { label: 'Verified', value: 'verified' },
+  { label: 'Rejected', value: 'rejected' },
+]
 
 export default function CertificatesPage() {
+  const { showToast } = useToast()
   const [certificates, setCertificates] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('')
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 })
+  const [selected, setSelected] = useState([]) // certificate ids
+  const [rejectTarget, setRejectTarget] = useState(null) // array of ids being rejected
+  const [rejectReason, setRejectReason] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const fetchCertificates = async (page = 1) => {
     setLoading(true)
+    setSelected([])
     try {
       const params = { page, limit: 20 }
-      if (filter) params.verified = filter
+      if (filter) params.status = filter
       const res = await adminAPI.getCertificates(params)
       setCertificates(res.data.data || [])
       setPagination(res.data.pagination || { page: 1, pages: 1, total: 0 })
@@ -25,27 +39,61 @@ export default function CertificatesPage() {
 
   useEffect(() => {
     fetchCertificates(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter])
 
-  const handleVerify = async (id, isVerified) => {
+  const toggleOne = (id) =>
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  const allVisibleSelected = certificates.length > 0 && certificates.every((c) => selected.includes(c._id))
+  const toggleAll = () =>
+    setSelected(allVisibleSelected ? [] : certificates.map((c) => c._id))
+
+  const verifyMany = async (ids) => {
+    setBusy(true)
     try {
-      await adminAPI.verifyCertificate(id, { isVerified })
-      setCertificates((prev) =>
-        prev.map((c) => (c._id === id ? { ...c, isVerified, status: isVerified ? 'verified' : 'rejected' } : c))
-      )
+      await Promise.all(ids.map((id) => adminAPI.verifyCertificate(id, { isVerified: true })))
+      showToast({ type: 'success', text: ids.length > 1 ? `${ids.length} certificates verified` : 'Certificate verified' })
+      fetchCertificates(pagination.page)
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update certificate')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to verify' })
+    } finally {
+      setBusy(false)
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to permanently delete this certificate? This action cannot be undone.')) return
+  const openReject = (ids) => {
+    setRejectReason('')
+    setRejectTarget(ids)
+  }
+
+  const submitReject = async () => {
+    const ids = rejectTarget || []
+    setBusy(true)
     try {
-      await adminAPI.deleteCertificate(id)
-      setCertificates((prev) => prev.filter((c) => c._id !== id))
-      setPagination((prev) => ({ ...prev, total: prev.total - 1 }))
+      await Promise.all(
+        ids.map((id) => adminAPI.verifyCertificate(id, { isVerified: false, rejectionReason: rejectReason.trim() }))
+      )
+      showToast({ type: 'success', text: ids.length > 1 ? `${ids.length} certificates rejected` : 'Certificate rejected' })
+      setRejectTarget(null)
+      fetchCertificates(pagination.page)
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete certificate')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to reject' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const deleteMany = async (ids) => {
+    if (!window.confirm(`Permanently delete ${ids.length} certificate(s)? This cannot be undone.`)) return
+    setBusy(true)
+    try {
+      await Promise.all(ids.map((id) => adminAPI.deleteCertificate(id)))
+      showToast({ type: 'success', text: ids.length > 1 ? `${ids.length} certificates deleted` : 'Certificate deleted' })
+      fetchCertificates(pagination.page)
+    } catch (err) {
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to delete' })
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -57,12 +105,8 @@ export default function CertificatesPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2 mb-6">
-        {[
-          { label: 'All', value: '' },
-          { label: 'Verified', value: 'true' },
-          { label: 'Pending', value: 'false' },
-        ].map((tab) => (
+      <div className="flex flex-wrap gap-2 mb-4">
+        {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setFilter(tab.value)}
@@ -77,15 +121,35 @@ export default function CertificatesPage() {
         ))}
       </div>
 
+      {/* Bulk action bar */}
+      {selected.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5">
+          <span className="text-sm font-medium text-gray-700">{selected.length} selected</span>
+          <div className="flex gap-2 ms-auto">
+            <button onClick={() => verifyMany(selected)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
+              <FiCheck className="w-3.5 h-3.5" /> Verify
+            </button>
+            <button onClick={() => openReject(selected)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50">
+              <FiX className="w-3.5 h-3.5" /> Reject
+            </button>
+            <button onClick={() => deleteMany(selected)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
+              <FiTrash2 className="w-3.5 h-3.5" /> Delete
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
+                <th className="px-4 py-3 w-8">
+                  <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/30" />
+                </th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">User</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Type</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Field</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Age</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Photo</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Status</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Actions</th>
@@ -93,41 +157,24 @@ export default function CertificatesPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
-                    Loading...
-                  </td>
-                </tr>
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-400">Loading...</td></tr>
               ) : certificates.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
-                    No certificates found
-                  </td>
-                </tr>
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-gray-400">No certificates found</td></tr>
               ) : (
                 certificates.map((cert) => (
                   <tr key={cert._id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-4">
+                      <input type="checkbox" checked={selected.includes(cert._id)} onChange={() => toggleOne(cert._id)} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/30" />
+                    </td>
                     <td className="px-6 py-4">
-                      <div>
-                        <p className="font-medium text-gray-900">{cert.user?.name || '—'}</p>
-                        <p className="text-xs text-gray-500">{cert.user?.email || ''}</p>
-                      </div>
+                      <p className="font-medium text-gray-900">{cert.user?.name || '—'}</p>
+                      <p className="text-xs text-gray-500">{cert.user?.email || ''}</p>
                     </td>
                     <td className="px-6 py-4 text-gray-600">{cert.certificateType?.name?.en || cert.certificateType?.name || '—'}</td>
                     <td className="px-6 py-4 text-gray-600">{cert.field?.name?.en || '—'}</td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {cert.user?.age ? `${cert.user.age}` : '—'}
-                    </td>
                     <td className="px-6 py-4">
                       {cert.certificatePhoto ? (
-                        <a
-                          href={cert.certificatePhoto}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline text-xs"
-                        >
-                          View Photo
-                        </a>
+                        <a href={cert.certificatePhoto} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs">View Photo</a>
                       ) : (
                         <span className="text-gray-400">—</span>
                       )}
@@ -140,36 +187,25 @@ export default function CertificatesPage() {
                           'bg-amber-50 text-amber-700'
                         }`}
                       >
-                        {cert.status === 'verified' ? 'Verified' : 
-                         cert.status === 'rejected' ? 'Rejected' : 'Pending'}
+                        {cert.status === 'verified' ? 'Verified' : cert.status === 'rejected' ? 'Rejected' : 'Pending'}
                       </span>
+                      {cert.status === 'rejected' && cert.rejectionReason && (
+                        <p className="mt-1 max-w-[220px] text-[10px] text-gray-400" title={cert.rejectionReason}>Reason: {cert.rejectionReason}</p>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-1">
-                        {/* Verify/Reject */}
                         {cert.status !== 'verified' && (
-                          <button
-                            onClick={() => handleVerify(cert._id, true)}
-                            className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-                            title="Verify"
-                          >
+                          <button onClick={() => verifyMany([cert._id])} disabled={busy} className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-50" title="Verify">
                             <FiCheck className="w-4 h-4" />
                           </button>
                         )}
-                        {cert.status === 'verified' && (
-                          <button
-                            onClick={() => handleVerify(cert._id, false)}
-                            className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
-                            title="Reject"
-                          >
+                        {cert.status !== 'rejected' && (
+                          <button onClick={() => openReject([cert._id])} disabled={busy} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 disabled:opacity-50" title="Reject">
                             <FiX className="w-4 h-4" />
                           </button>
                         )}
-                        <button
-                          onClick={() => handleDelete(cert._id)}
-                          className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                          title="Delete Certificate"
-                        >
+                        <button onClick={() => deleteMany([cert._id])} disabled={busy} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50" title="Delete Certificate">
                           <FiTrash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -183,28 +219,47 @@ export default function CertificatesPage() {
 
         {pagination.pages > 1 && (
           <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200">
-            <span className="text-sm text-gray-500">
-              Page {pagination.page} of {pagination.pages}
-            </span>
+            <span className="text-sm text-gray-500">Page {pagination.page} of {pagination.pages}</span>
             <div className="flex gap-2">
-              <button
-                onClick={() => fetchCertificates(pagination.page - 1)}
-                disabled={pagination.page <= 1}
-                className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              <button onClick={() => fetchCertificates(pagination.page - 1)} disabled={pagination.page <= 1} className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
                 <FiChevronLeft className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => fetchCertificates(pagination.page + 1)}
-                disabled={pagination.page >= pagination.pages}
-                className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              <button onClick={() => fetchCertificates(pagination.page + 1)} disabled={pagination.page >= pagination.pages} className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
                 <FiChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Rejection reason modal */}
+      {rejectTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setRejectTarget(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <h3 className="text-base font-semibold text-gray-900">
+                Reject {rejectTarget.length > 1 ? `${rejectTarget.length} certificates` : 'certificate'}
+              </h3>
+              <button onClick={() => setRejectTarget(null)} className="text-gray-400 hover:text-gray-600"><FiX className="w-5 h-5" /></button>
+            </div>
+            <div className="px-5 py-4">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Reason (sent to the applicant)</label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={3}
+                placeholder="e.g. The certificate image is unclear. Please re-upload a clearer copy."
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <p className="mt-1 text-[11px] text-gray-400">The applicant will receive this reason by email.</p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3">
+              <button onClick={() => setRejectTarget(null)} className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={submitReject} disabled={busy} className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-50">Reject</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -8,6 +8,7 @@ const emptyPlan = {
   description: { en: '', ar: '' },
   targetAudience: 'individual',
   price: '',
+  annualPrice: '',
   currency: 'AED',
   duration: 30,
   features: { en: [''], ar: [''] },
@@ -74,6 +75,7 @@ export default function PlansPage() {
       description: plan.description || { en: '', ar: '' },
       targetAudience: plan.targetAudience || 'individual',
       price: plan.price,
+      annualPrice: plan.annualPrice || '',
       currency: plan.currency || 'AED',
       duration: plan.duration,
       features: plan.features || { en: [''], ar: [''] },
@@ -126,6 +128,7 @@ export default function PlansPage() {
       const payload = {
         ...form,
         price: Number(form.price),
+        annualPrice: Number(form.annualPrice || 0),
         duration: Number(form.duration),
         maxCertificatesPerMonth: Number(form.maxCertificatesPerMonth),
         maxContactViewsPerMonth: Number(form.maxContactViewsPerMonth),
@@ -487,11 +490,21 @@ export default function PlansPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Price</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Monthly Price</label>
                   <input
                     type="number"
                     value={form.price}
                     onChange={(e) => setForm({ ...form, price: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Yearly Price</label>
+                  <input
+                    type="number"
+                    value={form.annualPrice}
+                    onChange={(e) => setForm({ ...form, annualPrice: e.target.value })}
+                    placeholder="0 = hide"
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>

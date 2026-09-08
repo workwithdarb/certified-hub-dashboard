@@ -62,7 +62,7 @@ function SocialLinkEditor({ links, onChange }) {
 }
 
 export default function SiteSettingsPage() {
-  const [openSections, setOpenSections] = useState({ footer: true })
+  const [openSections, setOpenSections] = useState({ footer: true, notifications: true })
 
   return (
     <PageEditor
@@ -104,6 +104,24 @@ export default function SiteSettingsPage() {
                 links={data?.footer?.socialLinks || []}
                 onChange={(links) => setData(prev => ({ ...prev, footer: { ...prev?.footer, socialLinks: links } }))}
               />
+            </div>
+          </SectionWrapper>
+
+          <SectionWrapper
+            title="Notifications"
+            open={openSections.notifications}
+            onToggle={() => setOpenSections(p => ({ ...p, notifications: !p.notifications }))}
+          >
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Notification Email</label>
+              <input
+                type="email"
+                value={data?.notificationEmail || ''}
+                onChange={(e) => setData(prev => ({ ...prev, notificationEmail: e.target.value }))}
+                placeholder="admin@example.com"
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+              />
+              <p className="text-xs text-gray-400">Where new contact messages and admin alerts are sent. Leave empty to use the default.</p>
             </div>
           </SectionWrapper>
         </>
