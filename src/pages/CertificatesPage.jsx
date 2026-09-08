@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { adminAPI } from '../lib/api'
-import { FiCheck, FiX, FiChevronLeft, FiChevronRight, FiTrash2 } from 'react-icons/fi'
+import { FiCheck, FiX, FiChevronLeft, FiChevronRight, FiTrash2, FiRotateCcw } from 'react-icons/fi'
 import { useToast } from '../components/ToastProvider'
 
 const STATUS_TABS = [
@@ -8,6 +8,7 @@ const STATUS_TABS = [
   { label: 'Pending', value: 'pending' },
   { label: 'Verified', value: 'verified' },
   { label: 'Rejected', value: 'rejected' },
+  { label: 'Deleted', value: 'deleted' },
 ]
 
 export default function CertificatesPage() {
@@ -26,7 +27,8 @@ export default function CertificatesPage() {
     setSelected([])
     try {
       const params = { page, limit: 20 }
-      if (filter) params.status = filter
+      if (filter === 'deleted') params.deleted = true
+      else if (filter) params.status = filter
       const res = await adminAPI.getCertificates(params)
       setCertificates(res.data.data || [])
       setPagination(res.data.pagination || { page: 1, pages: 1, total: 0 })
@@ -83,11 +85,14 @@ export default function CertificatesPage() {
     }
   }
 
-  const deleteMany = async (ids) => {
-    if (!window.confirm(`Permanently delete ${ids.length} certificate(s)? This cannot be undone.`)) return
+  const deleteMany = async (ids, permanent = false) => {
+    const msg = permanent
+      ? `Permanently delete ${ids.length} certificate(s)? This cannot be undone.`
+      : `Delete ${ids.length} certificate(s)? You can restore them from the Deleted tab.`
+    if (!window.confirm(msg)) return
     setBusy(true)
     try {
-      await Promise.all(ids.map((id) => adminAPI.deleteCertificate(id)))
+      await Promise.all(ids.map((id) => adminAPI.deleteCertificate(id, permanent)))
       showToast({ type: 'success', text: ids.length > 1 ? `${ids.length} certificates deleted` : 'Certificate deleted' })
       fetchCertificates(pagination.page)
     } catch (err) {
@@ -96,6 +101,21 @@ export default function CertificatesPage() {
       setBusy(false)
     }
   }
+
+  const restoreMany = async (ids) => {
+    setBusy(true)
+    try {
+      await Promise.all(ids.map((id) => adminAPI.restoreCertificate(id)))
+      showToast({ type: 'success', text: ids.length > 1 ? `${ids.length} certificates restored` : 'Certificate restored' })
+      fetchCertificates(pagination.page)
+    } catch (err) {
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to restore' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const isDeletedView = filter === 'deleted'
 
   return (
     <div>
@@ -126,15 +146,28 @@ export default function CertificatesPage() {
         <div className="flex flex-wrap items-center gap-2 mb-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5">
           <span className="text-sm font-medium text-gray-700">{selected.length} selected</span>
           <div className="flex gap-2 ms-auto">
-            <button onClick={() => verifyMany(selected)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
-              <FiCheck className="w-3.5 h-3.5" /> Verify
-            </button>
-            <button onClick={() => openReject(selected)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50">
-              <FiX className="w-3.5 h-3.5" /> Reject
-            </button>
-            <button onClick={() => deleteMany(selected)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
-              <FiTrash2 className="w-3.5 h-3.5" /> Delete
-            </button>
+            {isDeletedView ? (
+              <>
+                <button onClick={() => restoreMany(selected)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
+                  <FiRotateCcw className="w-3.5 h-3.5" /> Restore
+                </button>
+                <button onClick={() => deleteMany(selected, true)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
+                  <FiTrash2 className="w-3.5 h-3.5" /> Delete permanently
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => verifyMany(selected)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
+                  <FiCheck className="w-3.5 h-3.5" /> Verify
+                </button>
+                <button onClick={() => openReject(selected)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50">
+                  <FiX className="w-3.5 h-3.5" /> Reject
+                </button>
+                <button onClick={() => deleteMany(selected)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
+                  <FiTrash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -195,19 +228,32 @@ export default function CertificatesPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-1">
-                        {cert.status !== 'verified' && (
-                          <button onClick={() => verifyMany([cert._id])} disabled={busy} className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-50" title="Verify">
-                            <FiCheck className="w-4 h-4" />
-                          </button>
+                        {isDeletedView ? (
+                          <>
+                            <button onClick={() => restoreMany([cert._id])} disabled={busy} className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-50" title="Restore">
+                              <FiRotateCcw className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => deleteMany([cert._id], true)} disabled={busy} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50" title="Delete permanently">
+                              <FiTrash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {cert.status !== 'verified' && (
+                              <button onClick={() => verifyMany([cert._id])} disabled={busy} className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-50" title="Verify">
+                                <FiCheck className="w-4 h-4" />
+                              </button>
+                            )}
+                            {cert.status !== 'rejected' && (
+                              <button onClick={() => openReject([cert._id])} disabled={busy} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 disabled:opacity-50" title="Reject">
+                                <FiX className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button onClick={() => deleteMany([cert._id])} disabled={busy} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50" title="Delete Certificate">
+                              <FiTrash2 className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
-                        {cert.status !== 'rejected' && (
-                          <button onClick={() => openReject([cert._id])} disabled={busy} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 disabled:opacity-50" title="Reject">
-                            <FiX className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button onClick={() => deleteMany([cert._id])} disabled={busy} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50" title="Delete Certificate">
-                          <FiTrash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     </td>
                   </tr>
