@@ -8,6 +8,26 @@ export default function IndividualsPage() {
   const [search, setSearch] = useState('')
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 })
   const [expandedUser, setExpandedUser] = useState(null)
+  const [actionLoading, setActionLoading] = useState('')
+
+  const toggleSuspend = async (user) => {
+    const next = !user.isSuspended
+    const ok = window.confirm(
+      next
+        ? `Suspend ${user.name}? They will not be able to sign in.`
+        : `Reactivate ${user.name}?`
+    )
+    if (!ok) return
+    setActionLoading(user._id)
+    try {
+      await adminAPI.setUserSuspended(user._id, next)
+      fetchUsers(pagination.page)
+    } catch (err) {
+      alert(err.response?.data?.message || 'Action failed')
+    } finally {
+      setActionLoading('')
+    }
+  }
 
   const fetchUsers = async (page = 1) => {
     setLoading(true)
@@ -79,18 +99,19 @@ export default function IndividualsPage() {
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Availability</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Verified</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Joined</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={11} className="px-6 py-12 text-center text-gray-400">
                     Loading...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={11} className="px-6 py-12 text-center text-gray-400">
                     No individual users found
                   </td>
                 </tr>
@@ -131,10 +152,23 @@ export default function IndividualsPage() {
                       <td className="px-6 py-4 text-gray-500">
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => toggleSuspend(user)}
+                          disabled={actionLoading === user._id}
+                          className={`px-3 py-1 rounded-lg text-xs font-medium border disabled:opacity-50 ${
+                            user.isSuspended
+                              ? 'border-green-300 text-green-700 hover:bg-green-50'
+                              : 'border-red-300 text-red-600 hover:bg-red-50'
+                          }`}
+                        >
+                          {user.isSuspended ? 'Reactivate' : 'Suspend'}
+                        </button>
+                      </td>
                     </tr>
                     {expandedUser === user._id && (
                       <tr key={`${user._id}-details`} className="bg-gray-50">
-                        <td colSpan={10} className="px-6 py-4">
+                        <td colSpan={11} className="px-6 py-4">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                               <p className="text-gray-500 text-xs">Gender</p>

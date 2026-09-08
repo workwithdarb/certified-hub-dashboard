@@ -405,11 +405,42 @@ export default function PlansPage() {
               {form.isTrial && !editingPlan && existingTrial[form.targetAudience] && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-sm text-amber-700">
-                    ⚠️ A free trial plan for <strong>{form.targetAudience}</strong> already exists ({existingTrial[form.targetAudience].name?.en}). 
+                    ⚠️ A free trial plan for <strong>{form.targetAudience}</strong> already exists ({existingTrial[form.targetAudience].name?.en}).
                     Only one free trial plan per audience is allowed.
                   </p>
                 </div>
               )}
+
+              {/* Marketing badge — the tag shown on the plan card on the public site */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Badge</label>
+                  <select
+                    value={form.marketingBadge}
+                    onChange={(e) => setForm({ ...form, marketingBadge: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+                  >
+                    <option value="none">No badge</option>
+                    <option value="popular">Most Popular</option>
+                    <option value="best-offer">Best Offer</option>
+                    <option value="discount">Discount</option>
+                  </select>
+                  <p className="mt-1 text-[11px] text-gray-400">"Free Trial" is controlled by the Free Trial toggle above.</p>
+                </div>
+                {form.marketingBadge === 'discount' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Discount %</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={form.discountPercent}
+                      onChange={(e) => setForm({ ...form, discountPercent: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+                    />
+                  </div>
+                )}
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

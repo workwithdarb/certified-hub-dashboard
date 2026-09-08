@@ -7,6 +7,26 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 })
+  const [actionLoading, setActionLoading] = useState('')
+
+  const toggleSuspend = async (c) => {
+    const next = !c.isSuspended
+    const ok = window.confirm(
+      next
+        ? `Suspend ${c.companyName}? They will not be able to sign in.`
+        : `Reactivate ${c.companyName}?`
+    )
+    if (!ok) return
+    setActionLoading(c._id)
+    try {
+      await adminAPI.setCompanySuspended(c._id, next)
+      fetchCompanies(pagination.page)
+    } catch (err) {
+      alert(err.response?.data?.message || 'Action failed')
+    } finally {
+      setActionLoading('')
+    }
+  }
 
   const fetchCompanies = async (page = 1) => {
     setLoading(true)
@@ -57,18 +77,19 @@ export default function CompaniesPage() {
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Staff #</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Subscription</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Joined</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
                     Loading...
                   </td>
                 </tr>
               ) : companies.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
                     No companies found
                   </td>
                 </tr>
@@ -94,6 +115,19 @@ export default function CompaniesPage() {
                     </td>
                     <td className="px-6 py-4 text-gray-500">
                       {new Date(c.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => toggleSuspend(c)}
+                        disabled={actionLoading === c._id}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium border disabled:opacity-50 ${
+                          c.isSuspended
+                            ? 'border-green-300 text-green-700 hover:bg-green-50'
+                            : 'border-red-300 text-red-600 hover:bg-red-50'
+                        }`}
+                      >
+                        {c.isSuspended ? 'Reactivate' : 'Suspend'}
+                      </button>
                     </td>
                   </tr>
                 ))

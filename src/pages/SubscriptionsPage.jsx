@@ -1,14 +1,26 @@
 import { useState, useEffect } from 'react'
-import { adminAPI } from '../lib/api'
-import { FiChevronLeft, FiChevronRight } from 'react-icons/fi'
+import { adminAPI, plansAPI } from '../lib/api'
+import { FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi'
+import { useToast } from '../components/ToastProvider'
 
 export default function SubscriptionsPage() {
+  const { showToast } = useToast()
   const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 })
   const [actionLoading, setActionLoading] = useState('')
+  const [plans, setPlans] = useState([])
+  // Action modal state (replaces the native prompt() dialogs).
+  const [modal, setModal] = useState(null) // { type: 'status'|'extend'|'changePlan', sub }
+  const [formStatus, setFormStatus] = useState('')
+  const [formDays, setFormDays] = useState('30')
+  const [formPlanId, setFormPlanId] = useState('')
+
+  useEffect(() => {
+    plansAPI.getAll().then((res) => setPlans(res.data.data || [])).catch(() => {})
+  }, [])
 
   const fetchSubscriptions = (page = 1) => {
     setLoading(true)
@@ -78,34 +90,71 @@ export default function SubscriptionsPage() {
     return `ends in ${diffDays}d`
   }
 
-  const runSubscriptionAction = async (id, action) => {
+  const runSubscriptionAction = async (id, action, successText) => {
     setActionLoading(id)
     try {
       await action()
+      if (successText) showToast({ type: 'success', text: successText })
       fetchSubscriptions(pagination.page)
     } catch (err) {
-      alert(err.response?.data?.message || 'Subscription action failed')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Subscription action failed' })
     } finally {
       setActionLoading('')
     }
   }
 
   const updateStatus = (sub) => {
-    const status = prompt('Enter status: active, trialing, past_due, expired, cancelled', sub.status)
-    if (!status) return
-    runSubscriptionAction(sub._id, () => adminAPI.updateSubscriptionStatus(sub._id, { status }))
+    setFormStatus(sub.status || 'active')
+    setModal({ type: 'status', sub })
   }
 
   const extendSub = (sub) => {
-    const days = Number(prompt('Extend by how many days?', '30'))
-    if (!Number.isInteger(days) || days < 1) return
-    runSubscriptionAction(sub._id, () => adminAPI.extendSubscription(sub._id, { days }))
+    setFormDays('30')
+    setModal({ type: 'extend', sub })
   }
 
   const changePlan = (sub) => {
-    const planId = prompt('Enter replacement plan ID')
-    if (!planId) return
-    runSubscriptionAction(sub._id, () => adminAPI.changeSubscriptionPlan(sub._id, { planId }))
+    setFormPlanId('')
+    setModal({ type: 'changePlan', sub })
+  }
+
+  const modalTitle =
+    modal?.type === 'status' ? 'Change Status'
+      : modal?.type === 'extend' ? 'Extend Subscription'
+        : modal?.type === 'changePlan' ? 'Change Plan'
+          : ''
+
+  const audiencePlans = modal
+    ? plans.filter((p) => p.targetAudience === (modal.sub.subscriberType === 'company' ? 'company' : 'individual'))
+    : []
+
+  const submitModal = async () => {
+    if (!modal) return
+    const { type, sub } = modal
+    let call
+    let successText
+    if (type === 'status') {
+      if (!formStatus) return
+      call = () => adminAPI.updateSubscriptionStatus(sub._id, { status: formStatus })
+      successText = 'Status updated'
+    } else if (type === 'extend') {
+      const days = Number(formDays)
+      if (!Number.isInteger(days) || days < 1) {
+        showToast({ type: 'error', text: 'Enter a valid number of days' })
+        return
+      }
+      call = () => adminAPI.extendSubscription(sub._id, { days })
+      successText = `Extended by ${days} days`
+    } else if (type === 'changePlan') {
+      if (!formPlanId) {
+        showToast({ type: 'error', text: 'Please select a plan' })
+        return
+      }
+      call = () => adminAPI.changeSubscriptionPlan(sub._id, { planId: formPlanId })
+      successText = 'Plan changed'
+    }
+    setModal(null)
+    await runSubscriptionAction(sub._id, call, successText)
   }
 
   return (
@@ -123,7 +172,6 @@ export default function SubscriptionsPage() {
           { label: 'Trialing', value: 'trialing' },
           { label: 'Past Due', value: 'past_due' },
           { label: 'Expired', value: 'expired' },
-          { label: 'Cancelled', value: 'cancelled' },
         ].map((tab) => (
           <button
             key={tab.value}
@@ -265,7 +313,7 @@ export default function SubscriptionsPage() {
                           Plan
                         </button>
                         <button
-                          onClick={() => runSubscriptionAction(sub._id, () => adminAPI.resetSubscriptionUsage(sub._id))}
+                          onClick={() => runSubscriptionAction(sub._id, () => adminAPI.resetSubscriptionUsage(sub._id), 'Usage reset')}
                           disabled={actionLoading === sub._id}
                           className="px-2 py-1 rounded border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                         >
@@ -304,6 +352,109 @@ export default function SubscriptionsPage() {
           </div>
         )}
       </div>
+
+      {/* Action modal — replaces the native prompt() dialogs */}
+      {modal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setModal(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <h3 className="text-base font-semibold text-gray-900">{modalTitle}</h3>
+              <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600">
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-xs text-gray-500">
+                {getSubscriberName(modal.sub)} · {modal.sub.plan?.name?.en || '—'}
+              </p>
+
+              {modal.type === 'status' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                  <select
+                    value={formStatus}
+                    onChange={(e) => setFormStatus(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    {['active', 'trialing', 'past_due', 'expired'].map((s) => (
+                      <option key={s} value={s}>{statusLabels[s]}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {modal.type === 'extend' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Extend by (days)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formDays}
+                    onChange={(e) => setFormDays(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <div className="mt-2 flex gap-2">
+                    {[30, 90, 180, 365].map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setFormDays(String(d))}
+                        className="px-2.5 py-1 rounded-md border border-gray-200 text-xs text-gray-600 hover:bg-gray-50"
+                      >
+                        {d}d
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {modal.type === 'changePlan' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">New Plan</label>
+                  <select
+                    value={formPlanId}
+                    onChange={(e) => setFormPlanId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">Select a plan…</option>
+                    {audiencePlans.map((p) => (
+                      <option key={p._id} value={p._id}>
+                        {p.name?.en} — {p.price} {p.currency}{p.isTrial ? ' (Trial)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {audiencePlans.length === 0 && (
+                    <p className="mt-1 text-[11px] text-gray-400">No plans available for this subscriber type.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3">
+              <button
+                onClick={() => setModal(null)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitModal}
+                disabled={actionLoading === modal.sub._id}
+                className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

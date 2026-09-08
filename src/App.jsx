@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 const OverviewPage = lazy(() => import('./pages/OverviewPage'))
 const IndividualsPage = lazy(() => import('./pages/IndividualsPage'))
 const CompaniesPage = lazy(() => import('./pages/CompaniesPage'))
+const UsersPage = lazy(() => import('./pages/UsersPage'))
 const CertificatesPage = lazy(() => import('./pages/CertificatesPage'))
 const PlansPage = lazy(() => import('./pages/PlansPage'))
 const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'))
@@ -46,6 +47,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<DashboardLayout />}>
         <Route index element={<LazyPage><OverviewPage /></LazyPage>} />
+        <Route path="users" element={<LazyPage><UsersPage /></LazyPage>} />
         <Route path="individuals" element={<LazyPage><IndividualsPage /></LazyPage>} />
         <Route path="companies" element={<LazyPage><CompaniesPage /></LazyPage>} />
         <Route path="certificates" element={<LazyPage><CertificatesPage /></LazyPage>} />

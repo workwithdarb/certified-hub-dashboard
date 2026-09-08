@@ -27,11 +27,10 @@ import { ToastProvider } from './ToastProvider'
 const navItems = [
   { to: '/', icon: FiHome, label: 'Overview', end: true },
   { to: '/plans', icon: FiPackage, label: 'Plans' },
-  { to: '/individuals', icon: FiUsers, label: 'Individual Users' },
-  { to: '/companies', icon: FiBriefcase, label: 'Companies' },
+  { to: '/users', icon: FiUsers, label: 'Users' },
   { to: '/certificates', icon: FiAward, label: 'Certificates' },
-  { to: '/certificate-types', icon: FiTag, label: 'Field Types' },
   { to: '/certificate-fields', icon: FiTag, label: 'Cert. Fields' },
+  { to: '/certificate-types', icon: FiTag, label: 'Certificate Type' },
   { to: '/courses', icon: FiBookOpen, label: 'Courses' },
   { to: '/course-plans', icon: FiPackage, label: 'Course Plans' },
   { to: '/subscriptions', icon: FiCreditCard, label: 'Subscriptions' },
