@@ -16,10 +16,16 @@ const emptyPlan = {
   maxContactViewsPerMonth: -1,
   maxEmployees: -1,
   stripePriceId: '',
+  annualStripePriceId: '',
   trialDurationDays: 0,
   isTrial: false,
   isActive: true,
   order: 0,
+  searchPriority: 0,
+  grantsEnhancedProfile: false,
+  grantsExpiryAlerts: false,
+  canViewCertificate: true,
+  canMessageStaff: false,
   includedCourses: [],
   allCoursesIncluded: false,
   marketingBadge: 'none',
@@ -83,10 +89,16 @@ export default function PlansPage() {
       maxContactViewsPerMonth: plan.maxContactViewsPerMonth ?? -1,
       maxEmployees: plan.maxEmployees ?? -1,
       stripePriceId: plan.stripePriceId || '',
+      annualStripePriceId: plan.annualStripePriceId || '',
       trialDurationDays: plan.trialDurationDays || 0,
       isTrial: plan.isTrial || false,
       isActive: plan.isActive,
       order: plan.order || 0,
+      searchPriority: plan.searchPriority || 0,
+      grantsEnhancedProfile: !!plan.grantsEnhancedProfile,
+      grantsExpiryAlerts: !!plan.grantsExpiryAlerts,
+      canViewCertificate: plan.canViewCertificate !== false,
+      canMessageStaff: !!plan.canMessageStaff,
       includedCourses: (plan.includedCourses || []).map(c => typeof c === 'object' ? c._id : c),
       allCoursesIncluded: plan.allCoursesIncluded || false,
       marketingBadge: plan.marketingBadge || 'none',
@@ -135,6 +147,11 @@ export default function PlansPage() {
         maxEmployees: Number(form.maxEmployees),
         trialDurationDays: Number(form.trialDurationDays),
         order: Number(form.order),
+        searchPriority: Number(form.searchPriority || 0),
+        grantsEnhancedProfile: !!form.grantsEnhancedProfile,
+        grantsExpiryAlerts: !!form.grantsExpiryAlerts,
+        canViewCertificate: !!form.canViewCertificate,
+        canMessageStaff: !!form.canMessageStaff,
         includedCourses: form.allCoursesIncluded ? [] : form.includedCourses,
         allCoursesIncluded: form.allCoursesIncluded,
         marketingBadge: form.marketingBadge || 'none',
@@ -414,37 +431,6 @@ export default function PlansPage() {
                 </div>
               )}
 
-              {/* Marketing badge — the tag shown on the plan card on the public site */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Badge</label>
-                  <select
-                    value={form.marketingBadge}
-                    onChange={(e) => setForm({ ...form, marketingBadge: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
-                  >
-                    <option value="none">No badge</option>
-                    <option value="popular">Most Popular</option>
-                    <option value="best-offer">Best Offer</option>
-                    <option value="discount">Discount</option>
-                  </select>
-                  <p className="mt-1 text-[11px] text-gray-400">"Free Trial" is controlled by the Free Trial toggle above.</p>
-                </div>
-                {form.marketingBadge === 'discount' && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Discount %</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={form.discountPercent}
-                      onChange={(e) => setForm({ ...form, discountPercent: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
-                    />
-                  </div>
-                )}
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Name (EN)</label>
@@ -553,6 +539,7 @@ export default function PlansPage() {
                   </div>
                 )}
                 {form.targetAudience === 'company' && (
+                  <>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Max Contact Views / Month</label>
@@ -573,6 +560,19 @@ export default function PlansPage() {
                       />
                     </div>
                   </div>
+                  <div className="mt-3 space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="text-xs font-medium text-gray-500">Plan features</p>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={form.canViewCertificate}
+                        onChange={(e) => setForm({ ...form, canViewCertificate: e.target.checked })}
+                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+                      />
+                      Can view certificate image
+                    </label>
+                  </div>
+                  </>
                 )}
               </div>
 
@@ -585,6 +585,50 @@ export default function PlansPage() {
                   onChange={(e) => setForm({ ...form, order: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
+              </div>
+
+              {/* Registry search priority (individual plans) */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Search Priority</label>
+                <input
+                  type="number"
+                  value={form.searchPriority}
+                  onChange={(e) => setForm({ ...form, searchPriority: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                <p className="mt-1 text-[11px] text-gray-400">Higher = this plan's subscribers appear higher in the Staff Registry. 0 = use price.</p>
+              </div>
+
+              {/* Enhanced profile eligibility (individual plans) */}
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={form.grantsEnhancedProfile}
+                    onChange={(e) => setForm({ ...form, grantsEnhancedProfile: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+                  />
+                  Grants Enhanced profile eligibility
+                </label>
+                <p className="mt-1 text-[11px] text-gray-400">The profile still needs admin approval (Approve Enhanced on the user) to be shown as Enhanced.</p>
+                <label className="mt-3 flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={form.grantsExpiryAlerts}
+                    onChange={(e) => setForm({ ...form, grantsExpiryAlerts: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+                  />
+                  Certificate expiry alerts (email reminders)
+                </label>
+                <label className="mt-3 flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={form.canMessageStaff}
+                    onChange={(e) => setForm({ ...form, canMessageStaff: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+                  />
+                  Messaging enabled (companies → message staff, individuals → reply to employers)
+                </label>
               </div>
 
               {/* Course Access */}
@@ -641,7 +685,7 @@ export default function PlansPage() {
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
                     >
                       <option value="none">None</option>
-                      <option value="popular">Popular Plan</option>
+                      <option value="popular">Most Popular</option>
                       <option value="best-offer">Best Offer</option>
                       <option value="discount">Discount</option>
                     </select>

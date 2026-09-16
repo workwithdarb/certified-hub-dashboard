@@ -10,6 +10,19 @@ export default function IndividualsPage() {
   const [expandedUser, setExpandedUser] = useState(null)
   const [actionLoading, setActionLoading] = useState('')
 
+  const toggleEnhanced = async (user) => {
+    const next = !user.enhancedApproved
+    setActionLoading(user._id)
+    try {
+      await adminAPI.setUserEnhanced(user._id, next)
+      fetchUsers(pagination.page)
+    } catch (err) {
+      alert(err.response?.data?.message || 'Action failed')
+    } finally {
+      setActionLoading('')
+    }
+  }
+
   const toggleSuspend = async (user) => {
     const next = !user.isSuspended
     const ok = window.confirm(
@@ -153,17 +166,30 @@ export default function IndividualsPage() {
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">
-                        <button
-                          onClick={() => toggleSuspend(user)}
-                          disabled={actionLoading === user._id}
-                          className={`px-3 py-1 rounded-lg text-xs font-medium border disabled:opacity-50 ${
-                            user.isSuspended
-                              ? 'border-green-300 text-green-700 hover:bg-green-50'
-                              : 'border-red-300 text-red-600 hover:bg-red-50'
-                          }`}
-                        >
-                          {user.isSuspended ? 'Reactivate' : 'Suspend'}
-                        </button>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            onClick={() => toggleEnhanced(user)}
+                            disabled={actionLoading === user._id}
+                            className={`px-3 py-1 rounded-lg text-xs font-medium border disabled:opacity-50 ${
+                              user.enhancedApproved
+                                ? 'border-amber-300 text-amber-700 hover:bg-amber-50'
+                                : 'border-primary/30 text-primary hover:bg-primary/5'
+                            }`}
+                          >
+                            {user.enhancedApproved ? 'Revoke Enhanced' : 'Approve Enhanced'}
+                          </button>
+                          <button
+                            onClick={() => toggleSuspend(user)}
+                            disabled={actionLoading === user._id}
+                            className={`px-3 py-1 rounded-lg text-xs font-medium border disabled:opacity-50 ${
+                              user.isSuspended
+                                ? 'border-green-300 text-green-700 hover:bg-green-50'
+                                : 'border-red-300 text-red-600 hover:bg-red-50'
+                            }`}
+                          >
+                            {user.isSuspended ? 'Reactivate' : 'Suspend'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     {expandedUser === user._id && (

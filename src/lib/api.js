@@ -91,6 +91,7 @@ export const adminAPI = {
   getUsers: (params) => api.get('/admin/users', { params }),
   getCompanies: (params) => api.get('/admin/companies', { params }),
   setUserSuspended: (id, suspended) => api.patch(`/admin/users/${id}/suspend`, { suspended }),
+  setUserEnhanced: (id, enhanced) => api.patch(`/admin/users/${id}/enhanced`, { enhanced }),
   setCompanySuspended: (id, suspended) => api.patch(`/admin/companies/${id}/suspend`, { suspended }),
   getCertificates: (params) => api.get('/admin/certificates', { params }),
   verifyCertificate: (id, data) => api.put(`/admin/certificates/${id}/verify`, data),
