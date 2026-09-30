@@ -28,6 +28,9 @@ const CertifiedStaffPage = lazy(() => import('./pages/CertifiedStaffPage'))
 const CoursesContentPage = lazy(() => import('./pages/CoursesContentPage'))
 const SiteSettingsPage = lazy(() => import('./pages/SiteSettingsPage'))
 const ListOptionsPage = lazy(() => import('./pages/ListOptionsPage'))
+const PartnerApplicationsPage = lazy(() => import('./pages/PartnerApplicationsPage'))
+const TrainingCentersPage = lazy(() => import('./pages/TrainingCentersPage'))
+const BookingsPage = lazy(() => import('./pages/BookingsPage'))
 
 function PageLoader() {
   return (
@@ -53,6 +56,9 @@ function App() {
         <Route path="certificates" element={<LazyPage><CertificatesPage /></LazyPage>} />
         <Route path="plans" element={<LazyPage><PlansPage /></LazyPage>} />
         <Route path="subscriptions" element={<LazyPage><SubscriptionsPage /></LazyPage>} />
+        <Route path="partner-applications" element={<LazyPage><PartnerApplicationsPage /></LazyPage>} />
+        <Route path="centers" element={<LazyPage><TrainingCentersPage /></LazyPage>} />
+        <Route path="bookings" element={<LazyPage><BookingsPage /></LazyPage>} />
         <Route path="certificate-types" element={<LazyPage><CertificateTypesPage /></LazyPage>} />
         <Route path="certificate-fields" element={<LazyPage><CertificateFieldsPage /></LazyPage>} />
         <Route path="courses" element={<LazyPage><CoursesPage /></LazyPage>} />

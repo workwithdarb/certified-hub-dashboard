@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
+import { useConfirm } from '../components/ConfirmProvider'
+import { useToast } from '../components/ToastProvider'
 import { adminAPI } from '../lib/api'
 import { FiPlus, FiEdit2, FiTrash2, FiSave, FiX, FiTag } from 'react-icons/fi'
 
 const emptyField = { name: { en: '', ar: '' }, isActive: true, order: 0 }
 
 export default function CertificateFieldsPage() {
+  const confirm = useConfirm()
+  const { showToast } = useToast()
   const [fields, setFields] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -54,19 +58,19 @@ export default function CertificateFieldsPage() {
       setShowModal(false)
       fetchFields()
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to save')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to save' })
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this certificate field?')) return
+    if (!(await confirm('Delete this certificate field?'))) return
     try {
       await adminAPI.deleteCertificateField(id)
       fetchFields()
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to delete' })
     }
   }
 

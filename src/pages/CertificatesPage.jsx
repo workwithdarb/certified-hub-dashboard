@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useConfirm } from '../components/ConfirmProvider'
 import { adminAPI } from '../lib/api'
 import { FiCheck, FiX, FiChevronLeft, FiChevronRight, FiTrash2, FiRotateCcw } from 'react-icons/fi'
 import { useToast } from '../components/ToastProvider'
@@ -12,6 +13,7 @@ const STATUS_TABS = [
 ]
 
 export default function CertificatesPage() {
+  const confirm = useConfirm()
   const { showToast } = useToast()
   const [certificates, setCertificates] = useState([])
   const [loading, setLoading] = useState(true)
@@ -89,7 +91,7 @@ export default function CertificatesPage() {
     const msg = permanent
       ? `Permanently delete ${ids.length} certificate(s)? This cannot be undone.`
       : `Delete ${ids.length} certificate(s)? You can restore them from the Deleted tab.`
-    if (!window.confirm(msg)) return
+    if (!(await confirm(msg))) return
     setBusy(true)
     try {
       await Promise.all(ids.map((id) => adminAPI.deleteCertificate(id, permanent)))

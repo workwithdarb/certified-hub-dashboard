@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useConfirm } from '../components/ConfirmProvider'
+import { useToast } from '../components/ToastProvider'
 import { pagesAPI } from '../lib/api'
 import { FiPlus, FiTrash2, FiCheck, FiX, FiEdit2, FiToggleLeft, FiToggleRight, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 
@@ -11,6 +13,8 @@ const CATEGORIES = [
 ]
 
 export default function ListOptionsPage() {
+  const confirm = useConfirm()
+  const { showToast } = useToast()
   const [activeCategory, setActiveCategory] = useState('location')
   const [options, setOptions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -46,7 +50,7 @@ export default function ListOptionsPage() {
       setShowAdd(false)
       fetchOptions()
     } catch (err) {
-      alert(err.message || 'Failed to add option')
+      showToast({ type: 'error', text: err.message || 'Failed to add option' })
     }
     setSaving(false)
   }
@@ -58,7 +62,7 @@ export default function ListOptionsPage() {
       setEditingId(null)
       fetchOptions()
     } catch (err) {
-      alert(err.message || 'Failed to update option')
+      showToast({ type: 'error', text: err.message || 'Failed to update option' })
     }
     setSaving(false)
   }
@@ -68,19 +72,19 @@ export default function ListOptionsPage() {
       await pagesAPI.updateListOption(opt._id, { ...opt, isActive: !opt.isActive })
       fetchOptions()
     } catch (err) {
-      alert(err.message || 'Failed to toggle')
+      showToast({ type: 'error', text: err.message || 'Failed to toggle' })
     }
   }
 
   const handleDelete = async (opt) => {
     const catLabel = CATEGORIES.find(c => c.key === opt.category)?.label || opt.category
     const confirmMsg = `Permanently delete "${opt.label.en}" from ${catLabel}?\n\nNote: If any users have this value selected, their data will show the raw key instead of the label.\n\nConsider deactivating instead.`
-    if (!confirm(confirmMsg)) return
+    if (!(await confirm(confirmMsg))) return
     try {
       await pagesAPI.deleteListOption(opt._id)
       fetchOptions()
     } catch (err) {
-      alert(err.message || 'Failed to delete')
+      showToast({ type: 'error', text: err.message || 'Failed to delete' })
     }
   }
 

@@ -1,14 +1,42 @@
 import { useState, useEffect } from 'react'
+import { useConfirm } from '../components/ConfirmProvider'
+import { useToast } from '../components/ToastProvider'
 import { adminAPI } from '../lib/api'
 import { FiSearch, FiChevronLeft, FiChevronRight, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 
 export default function IndividualsPage() {
+  const confirm = useConfirm()
+  const { showToast } = useToast()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 })
   const [expandedUser, setExpandedUser] = useState(null)
   const [actionLoading, setActionLoading] = useState('')
+  // Platform → user messaging
+  const [msgTarget, setMsgTarget] = useState(null) // a user object, or { all: true }
+  const [msgBody, setMsgBody] = useState('')
+  const [msgPriority, setMsgPriority] = useState(false)
+  const [msgSending, setMsgSending] = useState(false)
+
+  const sendMessage = async () => {
+    if (!msgBody.trim()) return
+    setMsgSending(true)
+    try {
+      const payload = { body: msgBody.trim(), isPriority: msgPriority }
+      if (msgTarget?.all) payload.toAll = true
+      else payload.recipientId = msgTarget._id
+      const res = await adminAPI.sendPlatformMessage(payload)
+      showToast({ type: 'success', text: res.data?.message || 'Message sent' })
+      setMsgTarget(null)
+      setMsgBody('')
+      setMsgPriority(false)
+    } catch (err) {
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to send message' })
+    } finally {
+      setMsgSending(false)
+    }
+  }
 
   const toggleEnhanced = async (user) => {
     const next = !user.enhancedApproved
@@ -17,7 +45,7 @@ export default function IndividualsPage() {
       await adminAPI.setUserEnhanced(user._id, next)
       fetchUsers(pagination.page)
     } catch (err) {
-      alert(err.response?.data?.message || 'Action failed')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Action failed' })
     } finally {
       setActionLoading('')
     }
@@ -25,7 +53,7 @@ export default function IndividualsPage() {
 
   const toggleSuspend = async (user) => {
     const next = !user.isSuspended
-    const ok = window.confirm(
+    const ok = await confirm(
       next
         ? `Suspend ${user.name}? They will not be able to sign in.`
         : `Reactivate ${user.name}?`
@@ -36,7 +64,7 @@ export default function IndividualsPage() {
       await adminAPI.setUserSuspended(user._id, next)
       fetchUsers(pagination.page)
     } catch (err) {
-      alert(err.response?.data?.message || 'Action failed')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Action failed' })
     } finally {
       setActionLoading('')
     }
@@ -81,7 +109,15 @@ export default function IndividualsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Individual Users</h1>
-        <span className="text-sm text-gray-500">{pagination.total} total</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => { setMsgTarget({ all: true }); setMsgBody(''); setMsgPriority(false); }}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary-dark"
+          >
+            Message all users
+          </button>
+          <span className="text-sm text-gray-500">{pagination.total} total</span>
+        </div>
       </div>
 
       {/* Search */}
@@ -189,6 +225,12 @@ export default function IndividualsPage() {
                           >
                             {user.isSuspended ? 'Reactivate' : 'Suspend'}
                           </button>
+                          <button
+                            onClick={() => { setMsgTarget(user); setMsgBody(''); setMsgPriority(false); }}
+                            className="px-3 py-1 rounded-lg text-xs font-medium border border-blue-300 text-blue-600 hover:bg-blue-50"
+                          >
+                            Message
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -252,6 +294,49 @@ export default function IndividualsPage() {
           </div>
         )}
       </div>
+
+      {/* Platform → user message composer */}
+      {msgTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !msgSending && setMsgTarget(null)}>
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <h3 className="text-base font-bold text-gray-900">
+                {msgTarget.all ? 'Message all individual users' : `Message ${msgTarget.name || msgTarget.email}`}
+              </h3>
+              <button onClick={() => !msgSending && setMsgTarget(null)} className="text-gray-400 hover:text-gray-600 text-sm">Close</button>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              {msgTarget.all && (
+                <p className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                  This message will be sent to every individual user's inbox.
+                </p>
+              )}
+              <textarea
+                value={msgBody}
+                onChange={(e) => setMsgBody(e.target.value)}
+                rows={5}
+                maxLength={2000}
+                placeholder="Write your message…"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={msgPriority} onChange={(e) => setMsgPriority(e.target.checked)} className="rounded border-gray-300" />
+                Mark as priority
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3">
+              <button onClick={() => !msgSending && setMsgTarget(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button
+                onClick={sendMessage}
+                disabled={msgSending || !msgBody.trim()}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
+              >
+                {msgSending ? 'Sending…' : 'Send message'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

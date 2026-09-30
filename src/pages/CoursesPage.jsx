@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useConfirm } from '../components/ConfirmProvider'
+import { useToast } from '../components/ToastProvider'
 import { coursesAPI, courseCategoriesAPI } from '../lib/api'
 import { FiPlus, FiEdit2, FiTrash2, FiX, FiChevronUp, FiChevronDown, FiYoutube, FiEye, FiEyeOff, FiUpload } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
@@ -19,6 +21,8 @@ const emptyCourse = {
 }
 
 export default function CoursesPage() {
+  const confirm = useConfirm()
+  const { showToast } = useToast()
   const [courses, setCourses] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -128,19 +132,19 @@ export default function CoursesPage() {
       setShowModal(false)
       fetchCourses()
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to save course')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to save course' })
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this course and all its enrollments?')) return
+    if (!(await confirm('Delete this course and all its enrollments?'))) return
     try {
       await coursesAPI.delete(id)
       fetchCourses()
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to delete' })
     }
   }
 

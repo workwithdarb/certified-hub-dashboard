@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useConfirm } from '../components/ConfirmProvider'
+import { useToast } from '../components/ToastProvider'
 import { adminAPI, plansAPI, coursesAPI } from '../lib/api'
 import { FiPlus, FiEdit2, FiTrash2, FiX, FiUsers, FiBriefcase } from 'react-icons/fi'
 import CoursePlansPage from './CoursePlansPage'
@@ -24,7 +26,7 @@ const emptyPlan = {
   searchPriority: 0,
   grantsEnhancedProfile: false,
   grantsExpiryAlerts: false,
-  canViewCertificate: true,
+  canViewCertificate: false,
   canMessageStaff: false,
   includedCourses: [],
   allCoursesIncluded: false,
@@ -33,6 +35,8 @@ const emptyPlan = {
 }
 
 export default function PlansPage() {
+  const confirm = useConfirm()
+  const { showToast } = useToast()
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -97,7 +101,7 @@ export default function PlansPage() {
       searchPriority: plan.searchPriority || 0,
       grantsEnhancedProfile: !!plan.grantsEnhancedProfile,
       grantsExpiryAlerts: !!plan.grantsExpiryAlerts,
-      canViewCertificate: plan.canViewCertificate !== false,
+      canViewCertificate: !!plan.canViewCertificate,
       canMessageStaff: !!plan.canMessageStaff,
       includedCourses: (plan.includedCourses || []).map(c => typeof c === 'object' ? c._id : c),
       allCoursesIncluded: plan.allCoursesIncluded || false,
@@ -110,7 +114,7 @@ export default function PlansPage() {
   const handleSave = async () => {
     // Validation
     if (!form.isTrial && Number(form.price) <= 0) {
-      alert('Price must be greater than 0 for non-trial plans. Enable "Free Trial Plan" if this is a trial plan.')
+      showToast({ type: 'error', text: 'Price must be greater than 0 for non-trial plans. Enable "Free Trial Plan" if this is a trial plan.' })
       setSaving(false)
       return
     }
@@ -130,7 +134,7 @@ export default function PlansPage() {
     ].filter(Boolean)
 
     if (limitErrors.length > 0) {
-      alert(limitErrors.join('\n'))
+      showToast({ type: 'error', text: limitErrors.join('\n') })
       setSaving(false)
       return
     }
@@ -170,19 +174,19 @@ export default function PlansPage() {
       setShowModal(false)
       fetchPlans()
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to save plan')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to save plan' })
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this plan?')) return
+    if (!(await confirm('Are you sure you want to delete this plan?'))) return
     try {
       await adminAPI.deletePlan(id)
       fetchPlans()
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete plan')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to delete plan' })
     }
   }
 

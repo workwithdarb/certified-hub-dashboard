@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useConfirm } from '../components/ConfirmProvider'
+import { useToast } from '../components/ToastProvider'
 import { courseCategoriesAPI } from '../lib/api'
 import { FiPlus, FiEdit2, FiTrash2, FiX } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
@@ -6,6 +8,8 @@ import { useNavigate } from 'react-router-dom'
 const emptyForm = { name: { en: '', ar: '' }, order: 0, isActive: true }
 
 export default function CourseCategoriesPage() {
+  const confirm = useConfirm()
+  const { showToast } = useToast()
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -45,7 +49,7 @@ export default function CourseCategoriesPage() {
   }
 
   const handleSave = async () => {
-    if (!form.name.en.trim()) { alert('English name is required'); return }
+    if (!form.name.en.trim()) { showToast({ type: 'error', text: 'English name is required' }); return }
     setSaving(true)
     try {
       if (editing) {
@@ -56,19 +60,19 @@ export default function CourseCategoriesPage() {
       setShowModal(false)
       fetchCategories()
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to save category')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to save category' })
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this category? Courses using it will become uncategorized.')) return
+    if (!(await confirm('Delete this category? Courses using it will become uncategorized.'))) return
     try {
       await courseCategoriesAPI.delete(id)
       fetchCategories()
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to delete' })
     }
   }
 

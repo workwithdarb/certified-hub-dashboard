@@ -9,6 +9,7 @@ export default function SubscriptionsPage() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [planFilter, setPlanFilter] = useState('')
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 })
   const [actionLoading, setActionLoading] = useState('')
   const [plans, setPlans] = useState([])
@@ -27,6 +28,7 @@ export default function SubscriptionsPage() {
     const params = { page, limit: 20 }
     if (statusFilter) params.status = statusFilter
     if (typeFilter) params.subscriberType = typeFilter
+    if (planFilter) params.plan = planFilter
     adminAPI.getSubscriptions(params)
       .then((res) => {
         setSubscriptions(res.data.data || [])
@@ -39,7 +41,7 @@ export default function SubscriptionsPage() {
   useEffect(() => {
     fetchSubscriptions(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, typeFilter])
+  }, [statusFilter, typeFilter, planFilter])
 
   const getSubscriberName = (sub) => {
     if (!sub.subscriberId) return '—'
@@ -206,6 +208,18 @@ export default function SubscriptionsPage() {
             {tab.label}
           </button>
         ))}
+        <select
+          value={planFilter}
+          onChange={(e) => setPlanFilter(e.target.value)}
+          className="ml-auto rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/30"
+        >
+          <option value="">All Plans</option>
+          {plans.map((p) => (
+            <option key={p._id} value={p._id}>
+              {(p.name?.en || p.name?.ar || 'Plan')}{p.isTrial ? ' (Trial)' : ''}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

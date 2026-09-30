@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useConfirm } from '../components/ConfirmProvider'
 import { coursePlansAPI, coursesAPI } from '../lib/api'
 import { FiPlus, FiEdit2, FiTrash2, FiSave, FiX, FiPackage, FiBookOpen, FiDollarSign } from 'react-icons/fi'
 import { useToast } from '../components/ToastProvider'
@@ -18,6 +19,7 @@ function getPlanCourseRules(plan) {
 }
 
 export default function CoursePlansPage() {
+  const confirm = useConfirm()
   const [plans, setPlans] = useState([])
   const [courses, setCourses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -129,7 +131,7 @@ export default function CoursePlansPage() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this course plan?')) return
+    if (!(await confirm('Delete this course plan?'))) return
     try {
       await coursePlansAPI.delete(id)
       setPlans((prev) => prev.filter((p) => p._id !== id))

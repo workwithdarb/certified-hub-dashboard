@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { authAPI } from '../lib/api'
+import { authAPI, adminAPI } from '../lib/api'
 import {
   FiHome,
   FiUsers,
@@ -20,9 +20,12 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiList,
+  FiLock,
+  FiCalendar,
 } from 'react-icons/fi'
 import styles from './DashboardLayout.module.css'
 import { ToastProvider } from './ToastProvider'
+import { ConfirmProvider } from './ConfirmProvider'
 
 const navItems = [
   { to: '/', icon: FiHome, label: 'Overview', end: true },
@@ -34,6 +37,9 @@ const navItems = [
   { to: '/courses', icon: FiBookOpen, label: 'Courses' },
   { to: '/course-plans', icon: FiPackage, label: 'Course Plans' },
   { to: '/subscriptions', icon: FiCreditCard, label: 'Subscriptions' },
+  { to: '/partner-applications', icon: FiBriefcase, label: 'Partner Applications' },
+  { to: '/centers', icon: FiHome, label: 'Training Centers' },
+  { to: '/bookings', icon: FiCalendar, label: 'Exam Bookings' },
   { to: '/contact', icon: FiMail, label: 'Contact' },
   {
     type: 'dropdown',
@@ -89,6 +95,40 @@ export default function DashboardLayout() {
     navigate('/login')
   }
 
+  // Account menu + change password
+  const [accountOpen, setAccountOpen] = useState(false)
+  const [pwdModal, setPwdModal] = useState(false)
+  const [pwd, setPwd] = useState({ current: '', next: '', confirm: '' })
+  const [pwdErr, setPwdErr] = useState('')
+  const [pwdMsg, setPwdMsg] = useState('')
+  const [pwdSaving, setPwdSaving] = useState(false)
+
+  const openPwdModal = () => {
+    setAccountOpen(false)
+    setPwd({ current: '', next: '', confirm: '' })
+    setPwdErr('')
+    setPwdMsg('')
+    setPwdModal(true)
+  }
+
+  const submitPassword = async () => {
+    setPwdErr('')
+    setPwdMsg('')
+    if (!pwd.current || !pwd.next) return setPwdErr('Please fill in all fields')
+    if (pwd.next.length < 6) return setPwdErr('New password must be at least 6 characters')
+    if (pwd.next !== pwd.confirm) return setPwdErr('New passwords do not match')
+    setPwdSaving(true)
+    try {
+      await adminAPI.changePassword({ currentPassword: pwd.current, newPassword: pwd.next })
+      setPwdMsg('Password updated successfully')
+      setPwd({ current: '', next: '', confirm: '' })
+    } catch (err) {
+      setPwdErr(err.response?.data?.message || 'Failed to change password')
+    } finally {
+      setPwdSaving(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -99,6 +139,7 @@ export default function DashboardLayout() {
 
   return (
     <ToastProvider>
+      <ConfirmProvider>
       <div className={styles.layout}>
       {/* Sidebar overlay for mobile */}
       {sidebarOpen && (
@@ -199,13 +240,40 @@ export default function DashboardLayout() {
           >
             <FiMenu className="w-5 h-5" />
           </button>
-          <div className="ml-auto flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary-50 rounded-full flex items-center justify-center text-primary text-sm font-bold">
-              {admin?.name?.charAt(0)?.toUpperCase() || 'A'}
-            </div>
-            <span className="text-sm font-medium text-gray-700 hidden sm:inline">
-              {admin?.name || 'Admin'}
-            </span>
+          <div className="ml-auto relative">
+            <button
+              onClick={() => setAccountOpen((v) => !v)}
+              className="flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-gray-100 transition-colors"
+            >
+              <div className="w-8 h-8 bg-primary-50 rounded-full flex items-center justify-center text-primary text-sm font-bold">
+                {admin?.name?.charAt(0)?.toUpperCase() || 'A'}
+              </div>
+              <span className="text-sm font-medium text-gray-700 hidden sm:inline">
+                {admin?.name || 'Admin'}
+              </span>
+              <FiChevronDown className="w-4 h-4 text-gray-400" />
+            </button>
+            {accountOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setAccountOpen(false)} />
+                <div className="absolute right-0 mt-2 w-52 rounded-xl border border-gray-100 bg-white py-1.5 shadow-lg z-20">
+                  <button
+                    onClick={openPwdModal}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <FiLock className="w-4 h-4 text-gray-400" />
+                    Change password
+                  </button>
+                  <button
+                    onClick={() => { setAccountOpen(false); handleLogout() }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    <FiLogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </header>
 
@@ -215,6 +283,40 @@ export default function DashboardLayout() {
         </main>
       </div>
       </div>
+
+      {pwdModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" onClick={() => !pwdSaving && setPwdModal(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <h3 className="text-base font-bold text-gray-900">Change password</h3>
+              <button onClick={() => !pwdSaving && setPwdModal(false)} className="text-gray-400 hover:text-gray-600"><FiX className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              {pwdErr && <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">{pwdErr}</p>}
+              {pwdMsg && <p className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700">{pwdMsg}</p>}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Current password</label>
+                <input type="password" value={pwd.current} onChange={(e) => setPwd({ ...pwd, current: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">New password</label>
+                <input type="password" value={pwd.next} onChange={(e) => setPwd({ ...pwd, next: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Confirm new password</label>
+                <input type="password" value={pwd.confirm} onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3">
+              <button onClick={() => setPwdModal(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Close</button>
+              <button onClick={submitPassword} disabled={pwdSaving} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50">
+                {pwdSaving ? 'Saving…' : 'Update password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </ConfirmProvider>
     </ToastProvider>
   )
 }

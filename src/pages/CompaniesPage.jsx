@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useConfirm } from '../components/ConfirmProvider'
+import { useToast } from '../components/ToastProvider'
 import { adminAPI } from '../lib/api'
 import { FiSearch, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 
 export default function CompaniesPage() {
+  const confirm = useConfirm()
+  const { showToast } = useToast()
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -11,7 +15,7 @@ export default function CompaniesPage() {
 
   const toggleSuspend = async (c) => {
     const next = !c.isSuspended
-    const ok = window.confirm(
+    const ok = await confirm(
       next
         ? `Suspend ${c.companyName}? They will not be able to sign in.`
         : `Reactivate ${c.companyName}?`
@@ -22,7 +26,7 @@ export default function CompaniesPage() {
       await adminAPI.setCompanySuspended(c._id, next)
       fetchCompanies(pagination.page)
     } catch (err) {
-      alert(err.response?.data?.message || 'Action failed')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Action failed' })
     } finally {
       setActionLoading('')
     }

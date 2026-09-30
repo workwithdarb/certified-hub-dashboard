@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useConfirm } from '../components/ConfirmProvider'
+import { useToast } from '../components/ToastProvider'
 import { adminAPI } from '../lib/api'
 import { FiMail, FiUser, FiClock, FiTrash2, FiEye, FiCheckCircle, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 
 export default function ContactMessagesPage() {
+  const confirm = useConfirm()
+  const { showToast } = useToast()
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedMessage, setSelectedMessage] = useState(null)
@@ -37,18 +41,18 @@ export default function ContactMessagesPage() {
         setSelectedMessage({ ...selectedMessage, status })
       }
     } catch (err) {
-      alert('Failed to update status')
+      showToast({ type: 'error', text: 'Failed to update status' })
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this message?')) return
+    if (!(await confirm('Are you sure you want to delete this message?'))) return
     try {
       await adminAPI.deleteContactMessage(id)
       fetchMessages()
       setSelectedMessage(null)
     } catch (err) {
-      alert('Failed to delete message')
+      showToast({ type: 'error', text: 'Failed to delete message' })
     }
   }
 

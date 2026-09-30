@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
+import { useConfirm } from '../components/ConfirmProvider'
+import { useToast } from '../components/ToastProvider'
 import { adminAPI } from '../lib/api'
 import { FiPlus, FiEdit2, FiTrash2, FiX } from 'react-icons/fi'
 
 const emptyType = { field: '', name: { en: '', ar: '' }, isActive: true, order: 0 }
 
 export default function CertificateTypesPage() {
+  const confirm = useConfirm()
+  const { showToast } = useToast()
   const [types, setTypes] = useState([])
   const [fields, setFields] = useState([])
   const [loading, setLoading] = useState(true)
@@ -52,7 +56,7 @@ export default function CertificateTypesPage() {
 
   const handleSave = async () => {
     if (!form.field) {
-      alert('Please select a parent field first')
+      showToast({ type: 'error', text: 'Please select a parent field first' })
       return
     }
     setSaving(true)
@@ -66,19 +70,19 @@ export default function CertificateTypesPage() {
       setShowModal(false)
       fetchTypes()
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to save')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to save' })
     } finally {
       setSaving(false)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this certificate type?')) return
+    if (!(await confirm('Delete this certificate type?'))) return
     try {
       await adminAPI.deleteCertificateType(id)
       fetchTypes()
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete')
+      showToast({ type: 'error', text: err.response?.data?.message || 'Failed to delete' })
     }
   }
 
